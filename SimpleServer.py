@@ -102,6 +102,30 @@ def processRequest(s,addr):
             else:
                 sendFileNotFound(s)
 
+        elif resource[-3:].lower() == ".ss":
+            # now the .ss files
+            resource = resource[:-3] # grab the name without the .ss at the end
+            print(resource)
+
+            # grab the template file and read it
+            file = open(resourceDirectory + "template.html", "r")
+            whatToSend = file.read()
+            file.close()
+
+            # replace the placeholder string with the sent resource name
+            whatToSend = whatToSend.replace("<TITLE_TEXT>", resource)
+
+            # hm
+            # do i add a send html function instead of copying and pasting this
+            # probably yeah
+            response = "HTTP/1.0 200 OK\r\n"
+            response += "Content-Type: text/html\r\n"
+            response += "\r\n"
+            response += whatToSend
+            s.send(response.encode("utf-8"))
+
+            sendFileNotFound(s)
+
         else:
             # something that hasnt been implemented
             response = "HTTP/1.0 403 Forbidden\r\n"
