@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 resourceDirectory = "public_resources/"
-portNum = 8001
+portNum = 8000
 
 
 def doesResourceExist(resourceName):
@@ -113,21 +113,13 @@ def processRequest(s,addr):
             print("sent:" + resource)
 
             # lop off greeting.ss (it served its purpose)
-            resource = resource.removeprefix("Greeting.ss?")
+            resource = resource.removeprefix("Greeting.ss")
             # this should leave us with just the data
 
-            # separate the data
-            splitResource = resource.split(",")
-            data = {}
-            for line in splitResource:
-                # lines are in key/value pairs separated by =
-                splitLine = line.split("=")
-                data[splitLine[0]] = splitLine[1]
 
-            print(data)
             # should i write code to make sure the name exists in the url?
             # that feels kinda important to check
-            print("remember to make sure data[\"name\"] exists here")
+            #print("remember to make sure data[\"name\"] exists here")
 
             file = open(resourceDirectory + "template.html", "r")
             whatToSend = file.read()
@@ -135,7 +127,33 @@ def processRequest(s,addr):
 
             # replace the placeholder string (strings now, actually) with the sent resource name
             whatToSend = whatToSend.replace("<TITLE_TEXT>", "Greeting")
-            whatToSend = whatToSend.replace("[MAIN_TEXT]", "do you like fluffy kittens too, " + data["name"] + "?")
+
+            wasPlaceholderReplaced = False
+
+            if resource.startswith("?"):
+                # theres more data (good)
+                # separate the data
+                splitResource = resource.split(",")
+                data = {}
+                for line in splitResource:
+                    # lines are in key/value pairs separated by =
+                    splitLine = line.split("=")
+
+                    # then make sure that they actually sent in data
+                    # (im pretty sure an empty string gets included as a line if there was nothing sent)
+                    if len(splitLine) > 1:
+                        data[splitLine[0]] = splitLine[1]
+
+                if "name" in data:
+                    # make sure the key "name" exists
+                    whatToSend = whatToSend.replace("[MAIN_TEXT]", "do you like fluffy kittens too, " + data["name"] + "?")
+                    wasPlaceholderReplaced = True
+
+            if not wasPlaceholderReplaced:
+                # i couldve checked for [MAIN_TEXT]
+                # but i also dont want someone getting really funny and saying their name is [MAIN_TEXT]
+                # "consider using an extreme adjective for funny" pycharm says
+                whatToSend = whatToSend.replace("<p> [MAIN_TEXT] </p>", "")
 
             # hm
             # do i add a send html function instead of copying and pasting this
@@ -145,6 +163,11 @@ def processRequest(s,addr):
             response += "\r\n"
             response += whatToSend
             s.send(response.encode("utf-8"))
+        
+        elif resource.startswith("Time.ss"):
+            file = open(resourceDirectory + "template.html", "r")
+            whatToSend = file.read()
+            file.close()
 
 
         elif resource[-3:].lower() == ".ss":
