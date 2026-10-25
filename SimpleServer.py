@@ -4,6 +4,8 @@ from pathlib import Path
 
 
 resourceDirectory = "public_resources/"
+portNum = 8001
+
 
 def doesResourceExist(resourceName):
     print("looking for " + resourceName)
@@ -102,18 +104,38 @@ def processRequest(s,addr):
             else:
                 sendFileNotFound(s)
 
-        elif resource[-3:].lower() == ".ss":
-            # now the .ss files
-            resource = resource[:-3] # grab the name without the .ss at the end
-            print(resource)
 
-            # grab the template file and read it
+        # i was handling greeting.ss the wrong way before
+        #elif resource[:11] == "Greeting.ss":
+        elif resource.startswith("Greeting.ss"):
+            # follow the greeting stuff
+            print("wahoo")
+            print("sent:" + resource)
+
+            # lop off greeting.ss (it served its purpose)
+            resource = resource.removeprefix("Greeting.ss?")
+            # this should leave us with just the data
+
+            # separate the data
+            splitResource = resource.split(",")
+            data = {}
+            for line in splitResource:
+                # lines are in key/value pairs separated by =
+                splitLine = line.split("=")
+                data[splitLine[0]] = splitLine[1]
+
+            print(data)
+            # should i write code to make sure the name exists in the url?
+            # that feels kinda important to check
+            print("remember to make sure data[\"name\"] exists here")
+
             file = open(resourceDirectory + "template.html", "r")
             whatToSend = file.read()
             file.close()
 
-            # replace the placeholder string with the sent resource name
-            whatToSend = whatToSend.replace("<TITLE_TEXT>", resource)
+            # replace the placeholder string (strings now, actually) with the sent resource name
+            whatToSend = whatToSend.replace("<TITLE_TEXT>", "Greeting")
+            whatToSend = whatToSend.replace("[MAIN_TEXT]", "do you like fluffy kittens too, " + data["name"] + "?")
 
             # hm
             # do i add a send html function instead of copying and pasting this
@@ -124,7 +146,33 @@ def processRequest(s,addr):
             response += whatToSend
             s.send(response.encode("utf-8"))
 
-            sendFileNotFound(s)
+
+        elif resource[-3:].lower() == ".ss":
+            # now the .ss files
+
+            resource = resource[:-3] # grab the name without the .ss at the end
+            print(resource)
+
+            # make sure its one of the resources that this server handles
+            if resource == "Time" or resource == "Greeting" or resource == "Vote":
+                # grab the template file and read it
+                file = open(resourceDirectory + "template.html", "r")
+                whatToSend = file.read()
+                file.close()
+
+                # replace the placeholder string with the sent resource name
+                whatToSend = whatToSend.replace("<TITLE_TEXT>", resource)
+
+                # hm
+                # do i add a send html function instead of copying and pasting this
+                # probably yeah
+                response = "HTTP/1.0 200 OK\r\n"
+                response += "Content-Type: text/html\r\n"
+                response += "\r\n"
+                response += whatToSend
+                s.send(response.encode("utf-8"))
+            else:
+                sendFileNotFound(s)
 
         else:
             # something that hasnt been implemented
@@ -150,8 +198,8 @@ def processRequest(s,addr):
 def SimpleServer():
     serversocket = socket()
     host = getIPAddress()
-    print("Listening on: ", host, ":8001")
-    serversocket.bind((host, 8001))
+    print("Listening on: ", host, ":", portNum)
+    serversocket.bind((host, portNum))
     serversocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     serversocket.listen()
 
