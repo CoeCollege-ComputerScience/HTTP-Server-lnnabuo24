@@ -1,10 +1,16 @@
+import datetime
+
 from netTools import *
 import threading
 from pathlib import Path
 
+import datetime
+
 
 resourceDirectory = "public_resources/"
-portNum = 8000
+portNum = 8001
+
+textPlaceholder = "[MAIN_TEXT]"
 
 
 def doesResourceExist(resourceName):
@@ -146,14 +152,14 @@ def processRequest(s,addr):
 
                 if "name" in data:
                     # make sure the key "name" exists
-                    whatToSend = whatToSend.replace("[MAIN_TEXT]", "do you like fluffy kittens too, " + data["name"] + "?")
+                    whatToSend = whatToSend.replace(textPlaceholder, "do you like fluffy kittens too, " + data["name"] + "?")
                     wasPlaceholderReplaced = True
 
             if not wasPlaceholderReplaced:
                 # i couldve checked for [MAIN_TEXT]
                 # but i also dont want someone getting really funny and saying their name is [MAIN_TEXT]
                 # "consider using an extreme adjective for funny" pycharm says
-                whatToSend = whatToSend.replace("<p> [MAIN_TEXT] </p>", "")
+                whatToSend = whatToSend.replace("<p> " + textPlaceholder + " </p>", "")
 
             # hm
             # do i add a send html function instead of copying and pasting this
@@ -163,11 +169,21 @@ def processRequest(s,addr):
             response += "\r\n"
             response += whatToSend
             s.send(response.encode("utf-8"))
-        
+
         elif resource.startswith("Time.ss"):
             file = open(resourceDirectory + "template.html", "r")
             whatToSend = file.read()
             file.close()
+
+            currentTime = datetime.datetime.now().time()
+            whatToSend = whatToSend.replace(textPlaceholder, "the cat-shaped clock on my wall says that the time is " + str(currentTime))
+            whatToSend = whatToSend.replace("<TITLE_TEXT>", "Time")
+
+            response = "HTTP/1.0 200 OK\r\n"
+            response += "Content-Type: text/html\r\n"
+            response += "\r\n"
+            response += whatToSend
+            s.send(response.encode("utf-8"))
 
 
         elif resource[-3:].lower() == ".ss":
@@ -206,6 +222,62 @@ def processRequest(s,addr):
             # i spent a few minutes wondering why trying an actual browser would just send an empty string
             # it turns out its because i wasnt specifying any page or resource
             # so of course i got the 403 forbidden
+
+    elif request[:4] == "POST":
+
+        # convert the request into something a little easier to use
+        request = request[5:]
+        spaceLoc = request.find(' ')
+        resource = request[:spaceLoc]
+        resource = resource.strip("/")
+        #print("are we posting now")
+        #print(resource)
+
+        if resource.startswith("Greeting.ss"):
+            # the one thing this is listening for
+            #print("yep, were posting")
+
+            # read the file
+            file = open(resourceDirectory + "template.html", "r")
+            whatToSend = file.read()
+            file.close()
+            whatToSend = whatToSend.replace("<TITLE_TEXT>", "Greeting")
+
+            # grab the data were looking for in the request
+            splitUp = request.split("\r\n\r\n")
+            #print("split: ")
+            #print(splitUp)
+            splitUp = splitUp[1]
+            #print(splitUp)
+            splitUp = splitUp.split(",")
+            data = {}
+            for line in splitUp:
+                splitLine = line.split("=")
+                data[splitLine[0]] = splitLine[1]
+
+            if "name" in data:
+                # make sure the key "name" exists
+                # (again)
+                whatToSend = whatToSend.replace(textPlaceholder, "do you like fluffy kittens too, " + data["name"] + "?")
+            else:
+                whatToSend = whatToSend.replace(textPlaceholder, "i should be sending you a bad request for this shouldnt i because i dont see a single name here")
+            
+            # you know
+            # a function to handle greeting.ss might be useful
+            # just takes in the sent data and sends a response
+            
+            response = "HTTP/1.0 200 OK\r\n"
+            response += "Content-Type: text/html\r\n"
+            response += "\r\n"
+            response += whatToSend
+            s.send(response.encode("utf-8"))
+        else:
+            # not greeting.ss
+            # (bad!)
+            response = "HTTP/1.0 400 Bad Request\r\n"
+            response += "\r\n"
+            response += "sorry i only handle one kind of post request (and you didnt send it)"
+            s.send(response.encode("utf-8"))
 
     else:
         response = "HTTP/1.0 501 Not Implemented\r\n"
