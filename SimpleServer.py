@@ -12,6 +12,9 @@ portNum = 8001
 
 textPlaceholder = "[MAIN_TEXT]"
 
+kittens = 0
+puppies = 0
+
 
 def doesResourceExist(resourceName):
     print("looking for " + resourceName)
@@ -50,7 +53,59 @@ def attemptImageSend(resource, mediaType, s):
     else:
         sendFileNotFound(s)
 
+def processVote(s, data):
+
+    global kittens
+    global puppies
+
+    # lop off vote.ss this time
+    file = open(resourceDirectory + "template.html", "r")
+    whatToSend = file.read()
+    file.close()
+
+    whatToSend = whatToSend.replace("<TITLE_TEXT>", "Vote")
+
+    properlyVoted = False
+    votedFor = ""
+
+    # wait a second
+    # i feel like i should be locking here
+    print("you should probably lock here (changing server data and all that)")
+    if "chosenOne" in data:
+        votedFor = data["chosenOne"]
+        if data["chosenOne"] == "kittens":
+            kittens += 1
+            properlyVoted = True
+        elif data["chosenOne"] == "puppies":
+            puppies += 1
+            properlyVoted = True
+
+    voteString = "kittens: " + str(kittens) + "\n puppies: " + str(puppies)
+    whichVoteTitle = ""
+    if votedFor == "puppies":
+        whichVoteTitle = "puppies (the incorrect option)"
+    elif votedFor == "kittens":
+        whichVoteTitle = "fluffy kittens"
+
+    if properlyVoted:
+        whatToSend = whatToSend.replace(textPlaceholder, "thank you for voting " + whichVoteTitle + ", " + voteString)
+    else:
+        whatToSend = whatToSend.replace(textPlaceholder, "thank you for...not voting? on either? " + voteString)
+
+    response = "HTTP/1.0 200 OK\r\n"
+    response += "Content-Type: text/html\r\n"
+    response += "\r\n"
+    response += whatToSend
+    s.send(response.encode("utf-8"))
+
+
+
+
 def processRequest(s,addr):
+
+    global kittens
+    global puppies
+
     request = getMessage(s)
     print(request)
 
@@ -138,6 +193,7 @@ def processRequest(s,addr):
 
             if resource.startswith("?"):
                 # theres more data (good)
+                resource = resource.removeprefix("?")
                 # separate the data
                 splitResource = resource.split(",")
                 data = {}
@@ -179,6 +235,65 @@ def processRequest(s,addr):
             whatToSend = whatToSend.replace(textPlaceholder, "the cat-shaped clock on my wall says that the time is " + str(currentTime))
             whatToSend = whatToSend.replace("<TITLE_TEXT>", "Time")
 
+            response = "HTTP/1.0 200 OK\r\n"
+            response += "Content-Type: text/html\r\n"
+            response += "\r\n"
+            response += whatToSend
+            s.send(response.encode("utf-8"))
+
+        elif resource.startswith("Vote.ss"):
+            # lop off vote.ss this time
+            resource = resource.removeprefix("Vote.ss")
+            file = open(resourceDirectory + "template.html", "r")
+            whatToSend = file.read()
+            file.close()
+
+            whatToSend = whatToSend.replace("<TITLE_TEXT>", "Vote")
+
+            properlyVoted = False
+            votedFor = ""
+            #data = {}
+
+            print("res:", resource)
+            if resource.startswith("?"):
+                # theres more data (good)
+                # remove the ?
+                resource = resource.removeprefix("?")
+                # separate the data
+                splitResource = resource.split(",")
+                data = {}
+                for line in splitResource:
+                    # lines are in key/value pairs separated by =
+                    splitLine = line.split("=")
+
+                    # then make sure that they actually sent in data
+                    # (im pretty sure an empty string gets included as a line if there was nothing sent)
+                    if len(splitLine) > 1:
+                        data[splitLine[0]] = splitLine[1]
+                # wait a second
+                # i feel like i should be locking here
+                print("you should probably lock here (changing server data and all that)")
+                print(data)
+                if "chosenOne" in data:
+                    print("okay, they voted")
+                    votedFor = data["chosenOne"]
+                    if data["chosenOne"] == "kittens":
+                        kittens += 1
+                        properlyVoted = True
+                    elif data["chosenOne"] == "puppies":
+                        puppies += 1
+                        properlyVoted = True
+
+            voteString = "kittens: " + str(kittens) + "\n puppies: " + str(puppies)
+
+            if properlyVoted:
+                whatToSend = whatToSend.replace(textPlaceholder, "thank you for voting " + votedFor + ", " + voteString)
+            else:
+                whatToSend = whatToSend.replace(textPlaceholder, "thank you for...not voting? " + voteString)
+
+            # hm
+            # do i add a send html function instead of copying and pasting this
+            # probably yeah
             response = "HTTP/1.0 200 OK\r\n"
             response += "Content-Type: text/html\r\n"
             response += "\r\n"
@@ -261,16 +376,38 @@ def processRequest(s,addr):
                 whatToSend = whatToSend.replace(textPlaceholder, "do you like fluffy kittens too, " + data["name"] + "?")
             else:
                 whatToSend = whatToSend.replace(textPlaceholder, "i should be sending you a bad request for this shouldnt i because i dont see a single name here")
-            
+
             # you know
             # a function to handle greeting.ss might be useful
             # just takes in the sent data and sends a response
-            
+
             response = "HTTP/1.0 200 OK\r\n"
             response += "Content-Type: text/html\r\n"
             response += "\r\n"
             response += whatToSend
             s.send(response.encode("utf-8"))
+
+        elif resource.startswith("Vote.ss"):
+            # read the file
+            file = open(resourceDirectory + "template.html", "r")
+            whatToSend = file.read()
+            file.close()
+            whatToSend = whatToSend.replace("<TITLE_TEXT>", "Greeting")
+
+            # grab the data were looking for in the request
+            splitUp = request.split("\r\n\r\n")
+            # print("split: ")
+            # print(splitUp)
+            splitUp = splitUp[1]
+            # print(splitUp)
+            splitUp = splitUp.split(",")
+            data = {}
+            for line in splitUp:
+                splitLine = line.split("=")
+                data[splitLine[0]] = splitLine[1]
+
+            processVote(s, data)
+
         else:
             # not greeting.ss
             # (bad!)
