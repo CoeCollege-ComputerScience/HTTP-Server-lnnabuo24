@@ -1,7 +1,7 @@
 import datetime
 
 from netTools import *
-import threading
+from threading import *
 from pathlib import Path
 
 import datetime
@@ -53,12 +53,14 @@ def attemptImageSend(resource, mediaType, s):
     else:
         sendFileNotFound(s)
 
-def processVote(s, data):
+
+# just takes in some data
+# and processes the vote
+def processVote(s, data, lock):
 
     global kittens
     global puppies
 
-    # lop off vote.ss this time
     file = open(resourceDirectory + "template.html", "r")
     whatToSend = file.read()
     file.close()
@@ -73,12 +75,14 @@ def processVote(s, data):
     print("you should probably lock here (changing server data and all that)")
     if "chosenOne" in data:
         votedFor = data["chosenOne"]
+        lock.acquire()
         if data["chosenOne"] == "kittens":
             kittens += 1
             properlyVoted = True
         elif data["chosenOne"] == "puppies":
             puppies += 1
             properlyVoted = True
+        lock.release()
 
     voteString = "kittens: " + str(kittens) + "\n puppies: " + str(puppies)
     whichVoteTitle = ""
@@ -101,7 +105,7 @@ def processVote(s, data):
 
 
 
-def processRequest(s,addr):
+def processRequest(s,addr, lock):
 
     global kittens
     global puppies
@@ -244,15 +248,8 @@ def processRequest(s,addr):
         elif resource.startswith("Vote.ss"):
             # lop off vote.ss this time
             resource = resource.removeprefix("Vote.ss")
-            file = open(resourceDirectory + "template.html", "r")
-            whatToSend = file.read()
-            file.close()
 
-            whatToSend = whatToSend.replace("<TITLE_TEXT>", "Vote")
-
-            properlyVoted = False
-            votedFor = ""
-            #data = {}
+            data = {}
 
             print("res:", resource)
             if resource.startswith("?"):
@@ -270,63 +267,8 @@ def processRequest(s,addr):
                     # (im pretty sure an empty string gets included as a line if there was nothing sent)
                     if len(splitLine) > 1:
                         data[splitLine[0]] = splitLine[1]
-                # wait a second
-                # i feel like i should be locking here
-                print("you should probably lock here (changing server data and all that)")
-                print(data)
-                if "chosenOne" in data:
-                    print("okay, they voted")
-                    votedFor = data["chosenOne"]
-                    if data["chosenOne"] == "kittens":
-                        kittens += 1
-                        properlyVoted = True
-                    elif data["chosenOne"] == "puppies":
-                        puppies += 1
-                        properlyVoted = True
 
-            voteString = "kittens: " + str(kittens) + "\n puppies: " + str(puppies)
-
-            if properlyVoted:
-                whatToSend = whatToSend.replace(textPlaceholder, "thank you for voting " + votedFor + ", " + voteString)
-            else:
-                whatToSend = whatToSend.replace(textPlaceholder, "thank you for...not voting? " + voteString)
-
-            # hm
-            # do i add a send html function instead of copying and pasting this
-            # probably yeah
-            response = "HTTP/1.0 200 OK\r\n"
-            response += "Content-Type: text/html\r\n"
-            response += "\r\n"
-            response += whatToSend
-            s.send(response.encode("utf-8"))
-
-
-        elif resource[-3:].lower() == ".ss":
-            # now the .ss files
-
-            resource = resource[:-3] # grab the name without the .ss at the end
-            print(resource)
-
-            # make sure its one of the resources that this server handles
-            if resource == "Time" or resource == "Greeting" or resource == "Vote":
-                # grab the template file and read it
-                file = open(resourceDirectory + "template.html", "r")
-                whatToSend = file.read()
-                file.close()
-
-                # replace the placeholder string with the sent resource name
-                whatToSend = whatToSend.replace("<TITLE_TEXT>", resource)
-
-                # hm
-                # do i add a send html function instead of copying and pasting this
-                # probably yeah
-                response = "HTTP/1.0 200 OK\r\n"
-                response += "Content-Type: text/html\r\n"
-                response += "\r\n"
-                response += whatToSend
-                s.send(response.encode("utf-8"))
-            else:
-                sendFileNotFound(s)
+            processVote(s, data, lock)
 
         else:
             # something that hasnt been implemented
@@ -388,11 +330,6 @@ def processRequest(s,addr):
             s.send(response.encode("utf-8"))
 
         elif resource.startswith("Vote.ss"):
-            # read the file
-            file = open(resourceDirectory + "template.html", "r")
-            whatToSend = file.read()
-            file.close()
-            whatToSend = whatToSend.replace("<TITLE_TEXT>", "Greeting")
 
             # grab the data were looking for in the request
             splitUp = request.split("\r\n\r\n")
@@ -404,9 +341,10 @@ def processRequest(s,addr):
             data = {}
             for line in splitUp:
                 splitLine = line.split("=")
-                data[splitLine[0]] = splitLine[1]
+                if len(splitLine) > 1:
+                    data[splitLine[0]] = splitLine[1]
 
-            processVote(s, data)
+            processVote(s, data, lock)
 
         else:
             # not greeting.ss
@@ -435,12 +373,14 @@ def SimpleServer():
     serversocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     serversocket.listen()
 
+    myLock = Lock()
+
     while True:
         print("Waiting for connection....")
         clientsocket, addr = serversocket.accept()
 
         print("Connnection from", addr)
-        threading.Thread(target=processRequest, args=(clientsocket,addr)).start()
+        Thread(target=processRequest, args=(clientsocket,addr, myLock)).start()
 
     serversocket.close()
 
