@@ -82,15 +82,18 @@ class Server:
 
             elif resource in self.coolCommands:
                 try:
+                    self.coolCommands[resource](cl, data)
+                    """
                     if hasData:
                         self.coolCommands[resource](cl, data)
                     else:
                         self.coolCommands[resource](cl)
+                    """
                 except KeyError:
                     self.respondNotFound(cl)
                 except TypeError:
                     # i really dont know if i need to be handling errors like this
-                    # do i need to handle incorrect input?
+                    # do i need to handle incorrect input? (if no data is sent too)
                     # i dont think we talked about it much in class so
                     print("uh oh someone didnt provide the proper input")
                     header = "HTTP/1.0 400 Bad Request\r\n\r\n"
@@ -99,6 +102,36 @@ class Server:
                     sendMessage(cl, body)
 
                     cl.close()
+
+        elif request.startswith("POST"):
+
+            print("POST, initial:", request)
+
+            # like before
+            # turn the request into something that can be worked with a little easier
+            request = request[5:] # lop off the POST
+            spaceLoc = request.find(' ') # find the first space
+            resource = request[:spaceLoc] # lop off the space as well
+            #resource = resource.strip("/") # strip off the /
+            # ^^^ nevermind (had to keep the / so the resource would be recognized as an endpoint)
+
+            #print("altered:", resource)
+
+            # split the request into the header(?) and query/data string
+            splitUp = request.split("\r\n\r\n")
+            data = splitUp[1] # yoink
+            print("(POST) data:", data)
+            print("(POST) resource:", resource)
+            
+            # my hands are clean
+            # the greeting is an endpoint/decorator
+            if resource in self.coolCommands:
+                try:
+                    self.coolCommands[resource](cl, data)
+                except KeyError:
+                    self.respondNotFound(cl)
+            else:
+                self.respondNotFound(cl)
 
 
 
