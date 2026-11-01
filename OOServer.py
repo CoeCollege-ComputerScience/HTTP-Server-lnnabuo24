@@ -59,6 +59,8 @@ class Server:
                 resource = splitUp[0]
                 data = splitUp[1]
                 hasData = True
+                print("data:", data)
+                print("resource:", resource)
 
             if resource == "/":
                 homePage = html.replace("**Content**", "<h1> Simple Server </h1>")
@@ -91,17 +93,23 @@ class Server:
                     """
                 except KeyError:
                     self.respondNotFound(cl)
+                """
+                # commented out
+                # for now
+                # maybe
                 except TypeError:
                     # i really dont know if i need to be handling errors like this
                     # do i need to handle incorrect input? (if no data is sent too)
                     # i dont think we talked about it much in class so
                     print("uh oh someone didnt provide the proper input")
+                    print("sent data:", data)
                     header = "HTTP/1.0 400 Bad Request\r\n\r\n"
                     body = homePage = html.replace("**Content**", "<h1> bad request (missing data or sent unneeded data most likely, probably) </h1>")
                     sendMessage(cl, header)
                     sendMessage(cl, body)
 
                     cl.close()
+                """
 
         elif request.startswith("POST"):
 
@@ -122,7 +130,7 @@ class Server:
             data = splitUp[1] # yoink
             print("(POST) data:", data)
             print("(POST) resource:", resource)
-            
+
             # my hands are clean
             # the greeting is an endpoint/decorator
             if resource in self.coolCommands:
