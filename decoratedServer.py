@@ -47,7 +47,10 @@ def gamble(cl):
     img1 = "<img src=RedDie" + str(num1) + ".png>"
     img2 = "<img src=RedDie" + str(num2) + ".png>"
 
-    homePage = html.replace("**Content**", "<p> you rolled: " + img1 + " and " + img2 + "</p>")
+    body = "<p> you rolled: " + img1 + " and " + img2 + "</p>"
+    body += "<a href=/dice> <button>reroll</button> </a>"
+
+    homePage = html.replace("**Content**", body)
     s.respondHTML(homePage, cl)
 
 s.run()
