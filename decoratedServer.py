@@ -42,8 +42,10 @@ def gamble(cl):
     num1 = random.randint(1, 6)
     num2 = random.randint(1, 6)
 
-    img1 = "<img src=kitten.png>" * num1
-    img2 = "<img src=kitten.png>" * num2
+    #img1 = "<img src=kitten.png>" * num1
+    #img2 = "<img src=kitten.png>" * num2
+    img1 = "<img src=RedDie" + str(num1) + ".png>"
+    img2 = "<img src=RedDie" + str(num2) + ".png>"
 
     homePage = html.replace("**Content**", "<p> you rolled: " + img1 + " and " + img2 + "</p>")
     s.respondHTML(homePage, cl)
